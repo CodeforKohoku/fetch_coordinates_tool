@@ -1,6 +1,6 @@
 # fetch_coordinates_tool
 
-ChromeでGoogle Mapsにアクセスして住所から座標を取得するツール
+ChromeでGoogle Mapsにアクセスして住所から座標を取得するツール<br>
 csvファイルの住所一覧を読み込み、csvファイルに座標一覧を出力
 <br>
 
@@ -18,7 +18,8 @@ csvファイルの住所一覧を読み込み、csvファイルに座標一覧�
         e.g "c:/driver/chromedriver.exe"
 
     - ASYNC_LIMIT:  並行処理の最大数<br>
-        ※スレッドセーフな処理のため、ASYNC_LIMITの数だけドライバープロセスが起動される
+        デフォルトでは実行環境のCPUコア数 - 1<br>
+        ※スレッドセーフな処理を保証するため、ASYNC_LIMITの数だけドライバープロセスが起動される
 
     - MAX_ADDRESS:  csvファイルから読み込み込んだ住所一覧で先頭から座標対象とする数<br>
         ※処理の実行には時間がかかることが想定される。 e.g 並行数5、住所50件 約200秒<br>

@@ -1,10 +1,12 @@
 import asyncio
 import csv
 import datetime
+import multiprocessing
 import re
 import sys
 import time
 from selenium import webdriver
+from selenium.common import exceptions
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -12,9 +14,9 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-DRIVER_PATH = "c:/driver/chromedriver.exe"   # change to your chrome driver path
-ASYNC_LIMIT = 5     # maximal number of asynchronous concurrent IOs
-MAX_ADDRESS = 50    # limit the number of addresses to fetch coordinates, None if no limit in need
+DRIVER_PATH = "c:/driver/chromedriver.exe"      # change to your chrome driver path
+ASYNC_LIMIT = multiprocessing.cpu_count() - 1   # maximal number of asyncio, which means number of chrome instances
+MAX_ADDRESS = 5    # limit the number of addresses to fetch coordinates, None if no limit in need
 
 class MapHandler:
     def __init__(self, driver_path, addrs):
@@ -27,7 +29,7 @@ class MapHandler:
         self.capability["pageLoadStrategy"] = "none"
 
         self.addrs = addrs
-        self.coords = [] # [[x-cord, y-cord]]
+        self.coords = [] # [[x-cord, y-cord]] or [(x-cord, y-cord)]
         self.regex = re.compile('@([0-9.]+),([0-9.]+),')
         self.errs = []
 
@@ -40,10 +42,13 @@ class MapHandler:
         driver = self.make_driver()
         driver.get(self.url)
         try:
-            searchbox = WebDriverWait(driver, 5).until(
+            searchbox = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, "searchboxinput")))     
             return driver, searchbox  
         except Exception as e:
+            if type(e) is exceptions.TimeoutException:
+                print('browser loading timeout for', self.url)
+                return
             raise e
 
 
@@ -63,7 +68,7 @@ class MapHandler:
     def async_create_cordinates(self):
         args = [None] # just placeholder for future any usage
         loop = asyncio.get_event_loop()
-        futures = async_run(self.fetch_coord, self.addrs, *args)
+        futures = async_run(self.fetch_coord, self.addrs, args)
         self.coords = loop.run_until_complete(futures)
 
 
@@ -72,14 +77,14 @@ class MapHandler:
             return
         print('fetching coordinates for %s ...' % addr)
 
-        if self.async_mode:
-            driver, searchbox = self.setup_driver_searchbox()
         try:
+            if self.async_mode:
+                driver, searchbox = self.setup_driver_searchbox()
             searchbox.send_keys(addr)
-            WebDriverWait(driver, 5).until(
+            WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='searchbox-searchbutton']"))).click()
 
-            if not WebDriverWait(driver, 5).until(EC.url_contains("www.google.co.jp/maps/place/")):
+            if not WebDriverWait(driver, 10).until(EC.url_contains("www.google.co.jp/maps/place/")):
                 time.sleep(3) # another wait for browser transition
 
             m = self.regex.search(driver.current_url)
@@ -99,14 +104,14 @@ class MapHandler:
             return None, None
 
 
-async def async_run(func, iters, *args):
+async def async_run(func, iters, args):
     semaphore = asyncio.Semaphore(ASYNC_LIMIT)
     async def async_semaphore(func, *args):
         async with semaphore:
             return await async_executor(func, *args)
 
     return await asyncio.gather(
-        *[async_semaphore(func, item) for item in iters]
+        *[async_semaphore(func, item, *args) for item in iters]
     )
 
 
@@ -160,7 +165,7 @@ def main():
     path = '%s_%s.csv' % (data_path.split('.')[0], tstamp)
     make_csv_file(path, matrix)
 
-    print(time.time() - start)
+    print('execution time: %f' % (time.time() - start))
 
 if __name__=='__main__':
     main()
