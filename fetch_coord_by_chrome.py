@@ -16,7 +16,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 DRIVER_PATH = "c:/driver/chromedriver.exe"      # change to your chrome driver path
 ASYNC_LIMIT = multiprocessing.cpu_count() - 1   # maximal number of asyncio, which means number of chrome instances
-MAX_ADDRESS = 5    # limit the number of addresses to fetch coordinates, None if no limit in need
+MAX_ADDRESS = 10    # limit the number of addresses to fetch coordinates, None if no limit in need
 
 class MapHandler:
     def __init__(self, driver_path, addrs):
@@ -126,16 +126,15 @@ def load_address_list(file_path):
 
         for i, value in enumerate(next(data)):
             if value == 'Add1':
-                addrs = [row[i] for row in data if row[i]] # skip empty "" value
-                break
-    return addrs
+                return [row[i] for row in data if row[i]] # skip empty "" value
+    raise Exception('address column not found')
 
 def make_csv_file(file_path, matrix):
     with open(file_path, mode='w', encoding="utf-8_sig", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerows(matrix)
+        csv.writer(f).writerows(matrix)
+        # w = csv.writer(f)
         # for row in matrix:
-        #     w = csv.writerow(row)
+        #     w.writerow(row)
 
 
 def format_unixtime(t, f="%Y%m%d%H%M%S"):
