@@ -1,10 +1,14 @@
 # fetch_coordinates_tool
 
 ChromeでGoogle Mapsにアクセスして住所から座標を取得するツール<br>
-csvファイルの住所一覧を読み込み、csvファイルに座標一覧を出力
+主な用途は以下の２つ<br>
+1. csvファイルの住所一覧を読み込み、csvファイルに座標一覧を出力
+2. 座標に間違いがないか、GoogleMaps上の目視確認で画面遷移の自動化
 <br>
 
 ## 要件
+- ChromeDriver https://sites.google.com/a/chromium.org/chromedriver/downloads<br>
+  ※macであればbrew install chromedriverなどで可能と思われる
 - python3系
 - requirements.txtで定義されたpythonモジュール<br>
     `$ pip(またはpip3) install -t requirements.txt`

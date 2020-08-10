@@ -14,19 +14,27 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-DRIVER_PATH = "c:/driver/chromedriver.exe"      # change to your chrome driver path
-ASYNC_LIMIT = multiprocessing.cpu_count() - 1   # maximal number of asyncio, which means number of chrome instances
-MAX_ADDRESS = 10    # limit the number of addresses to fetch coordinates, None if no limit in need
+DRIVER_PATH  = "c:/driver/chromedriver.exe"      # change to your chrome driver path
+VISUAL_CHECK = False
+BATCH_SIZE   = 2
+ASYNC_MODE   = True
+ASYNC_LIMIT  = multiprocessing.cpu_count() - 1   # maximal number of asyncio, which means number of chrome instances
+MAX_ADDRESS  = 10    # limit the number of addresses to fetch coordinates, None if no limit in need
 
 class MapHandler:
-    def __init__(self, driver_path, addrs):
-        self.async_mode = True
-        self.driver_path = driver_path
+    def __init__(self, addrs):
+        self.visual_check = VISUAL_CHECK
+        self.async_mode = False if VISUAL_CHECK else ASYNC_MODE
+        self.driver_path = DRIVER_PATH
         self.url = "https://www.google.co.jp/maps/?hl=ja" # google maps
-        self.options = Options()
-        self.options.add_argument('--headless')
-        self.capability = DesiredCapabilities.CHROME
-        self.capability["pageLoadStrategy"] = "none"
+
+        self.options = None
+        self.capability = None
+        if not VISUAL_CHECK:
+            self.options = Options()
+            self.options.add_argument('--headless')
+            self.capability = DesiredCapabilities.CHROME
+            self.capability["pageLoadStrategy"] = "none"
 
         self.addrs = addrs
         self.coords = [] # [[x-cord, y-cord]] or [(x-cord, y-cord)]
@@ -38,8 +46,9 @@ class MapHandler:
         return webdriver.Chrome(self.driver_path, chrome_options=self.options, desired_capabilities=self.capability)
 
 
-    def setup_driver_searchbox(self):
-        driver = self.make_driver()
+    def setup_driver_searchbox(self, driver=None):
+        if not driver:
+            driver = self.make_driver()
         driver.get(self.url)
         try:
             searchbox = WebDriverWait(driver, 10).until(
@@ -52,6 +61,16 @@ class MapHandler:
             raise e
 
 
+    def newtab_driver_searchbox(self, driver):
+        try:
+            driver.execute_script("window.open()")
+        except exceptions.NoSuchWindowException:
+            driver.switch_to.window(driver.window_handles[-1])
+            driver.execute_script("window.open()")
+        driver.switch_to.window(driver.window_handles[-1])
+        return self.setup_driver_searchbox(driver)
+
+
     def run(self):
         if self.async_mode:
             self.async_create_cordinates()
@@ -61,7 +80,25 @@ class MapHandler:
         for addr in self.addrs:
             x, y = self.fetch_coord(addr, driver, searchbox)
             self.coords.append([x, y])
-        if driver:
+
+            if not self.visual_check:
+                searchbox.clear()
+                # time.sleep(1)
+                continue
+            
+            if len(driver.window_handles) >= BATCH_SIZE:
+                print('waiting for the window tabs to be less than %d' % BATCH_SIZE)
+                while True:
+                    try:
+                        WebDriverWait(driver, 10).until(EC.number_of_windows_to_be(BATCH_SIZE - 1))
+                        break
+                    except exceptions.TimeoutException:
+                        pass
+                        # if type(e) is exceptions.NoSuchWindowException:
+                        #     driver.switch_to.window(driver.window_handles[-1])
+            driver, searchbox = self.newtab_driver_searchbox(driver)
+
+        if not self.visual_check and driver:
             driver.quit()
 
 
@@ -149,7 +186,7 @@ def main():
 
     if MAX_ADDRESS:
         addrs = addrs[:MAX_ADDRESS]
-    handler = MapHandler(DRIVER_PATH, addrs)
+    handler = MapHandler(addrs)
     handler.run()
 
     for err in handler.errs:
@@ -165,6 +202,8 @@ def main():
     make_csv_file(path, matrix)
 
     print('execution time: %f' % (time.time() - start))
+    if handler.visual_check:
+        input('press any key to exit when visual check is done')
 
 if __name__=='__main__':
     main()
