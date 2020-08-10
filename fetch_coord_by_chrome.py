@@ -15,8 +15,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 DRIVER_PATH  = "c:/driver/chromedriver.exe"      # change to your chrome driver path
+CSV_ENCODING = None  # "utf-8_sig" when csv file is downloaded from spreadsheet
 VISUAL_CHECK = False
-BATCH_SIZE   = 2
+BATCH_SIZE   = 2     # number of browser tabs for visual check, tool stops to open a new tab at BATCH_SIZE
 ASYNC_MODE   = True
 ASYNC_LIMIT  = multiprocessing.cpu_count() - 1   # maximal number of asyncio, which means number of chrome instances
 MAX_ADDRESS  = 10    # limit the number of addresses to fetch coordinates, None if no limit in need
@@ -158,7 +159,7 @@ async def async_executor(func, *args):
 
 
 def load_address_list(file_path):
-    with open(file_path, encoding="utf-8_sig") as f:
+    with open(file_path, encoding=CSV_ENCODING) as f:
         data = csv.reader(f) # csv reader() doesn't close file yet
 
         for i, value in enumerate(next(data)):
